@@ -1,24 +1,33 @@
 # RRxNorm.R
 # This script queries the RxNorm API to get the corresponding ids and names of strings representing Medications.
+# Useful links:
+# http://rxnav.nlm.nih.gov/RxNavViews.html#label:appendix
+# http://rxnav.nlm.nih.gov/RxNormAPIs.html#
+# http://mor.nlm.nih.gov/download/rxnav/RxClassIntro.html
 #
 # Copyright Antoine Lizee 04/2015 - antoine.lizee@gmail.com 
 
 
+rm(list = ls())
+
 # Parameters of the script -----------------------------------------------
 
-getConceptInfo <- T
-timeout <- 5
+getConceptInfo <- T #Do you want to query each rxcui that has been matched to expand its properties?
+defaultTimeout <- 5 #Timeout for the API calls
+test <- F #Just to print out some tests of the main requesting functions
 
 # API parameters
 baseURL <- "http://rxnav.nlm.nih.gov/"
 basePath <- "REST"
 extension <- ".json"
 
+
 # Initializing packages  ------------------------------------------------
 
-cat("## Initializing script...")
+cat("## Initializing script...\n")
 
 loadOrInstall <- function(pkg) {
+  #Small helper to automatically install missing packages
   stopifnot(class(pkg) == "character")
   if (!require(pkg, character.only = T)) {
     cat("## Installing the following necessary library:", pkg, "(this should happen only once per machine)\n")
@@ -36,10 +45,13 @@ loadOrInstall("plyr")
 
 buildPath <- function(action, suffix = NA, extend = TRUE) {
   #Builds the path used to query the RxNorm API
-  paste0(basePath, "/", action, ifelse(extend, extension, ""), ifelse(is.na(suffix), "", )) 
+  paste0(basePath, "/", 
+         action, 
+         ifelse(is.na(suffix), "", paste0("/", suffix)),
+         ifelse(extend, extension, ""))
 }
 
-fuzzyMatches <- function(term, n = 3, keep_rxaui = F, set_timeout = 5) {
+fuzzyMatches <- function(term, n = 3, keep_rxaui = F, set_timeout = defaultTimeout) {
   #fuzzyMatches() queries the RxNorm API to match a medication string to several
   #rxcuis. It returns all the matches that have a score of 100 if any,
   #otherwise, it returns the most of (i) the top n (ii) the tied best matches.
@@ -50,6 +62,7 @@ fuzzyMatches <- function(term, n = 3, keep_rxaui = F, set_timeout = 5) {
            query = list(term = term),
            timeout(set_timeout))
   df <- fromJSON(content(r, "text"))$approximateGroup$candidate
+  if (is.null(df)) return(NULL)
   df <- data.frame(lapply(df, as.numeric))
   if (!keep_rxaui) {
     df <- ddply(df, ~rxcui, summarize,
@@ -65,46 +78,77 @@ fuzzyMatches <- function(term, n = 3, keep_rxaui = F, set_timeout = 5) {
   }
 }
 
-if (test <- FALSE) {
-  fuzzyMatches("Hydrocodone-Acetaminophen") # General String, several perfect matches => all the 100 are returned
-  fuzzyMatches("Hydrocodone-Acetaminophen oiuy", n = 3) # General String + mistake => all the first matches are returned
-  fuzzyMatches(" Avandamet 2-500 MG Oral Tablet") # Specific String => The only 100 is returned
-  fuzzyMatches(" Avandamet 2-500 MG Oral Tablet poiu", n = 3) # Specific String with mistake => the top n are returned
+if (test) {
+  print(fuzzyMatches("Hydrocodone-Acetaminophen")) # General String, several perfect matches => all the 100 are returned
+  print(fuzzyMatches("Hydrocodone-Acetaminophen oiuy")) # General String + mistake => all the first matches are returned
+  print(fuzzyMatches(" Avandamet 2-500 MG Oral Tablet")) # Specific String => The only 100 is returned
+  print(fuzzyMatches(" Avandamet 2-500 MG Oral Tablet poiu", n = 3)) # Specific String with mistake => the top n are returned
 }
 
-rcxuiInfo <- function(rxcui) {
+rxcuiInfo <- function(rxcui, set_timeout = defaultTimeout) {
   #rxcuiInfo() queries the API to get further information about a particular concept.
   r <- GET(url = baseURL,
-           path = buildPath("rxcui", paste0(rxcui, "/properties")))
-  unlist(fromJSON(content(r, "text"))$properties)
+           path = buildPath("rxcui", paste0(rxcui, "/properties")),
+           timeout(set_timeout))
+  if (is.null(content(r))) return(NULL)
+  info <- data.frame(fromJSON(content(r, "text"))$properties, stringsAsFactors = F)
+  info[c("rxcui")] <- as.numeric(info[c("rxcui")])
+  return(info)
+}
+
+if (test) {
+  rxcuiInfo(214182)
 }
 
 
 # Read Example File ----------------------------------------------------------------
 
 medTable <- read.delim("Data/medications.tsv", stringsAsFactors = F)
-medStrings <- medTable$medication[1:5]
+medStrings <- unique(medTable$medication)
 
 
 # Match the names to rxcuis in batch ---------------------------------------------
 
 cat("## Matching medication names...\n")
-pb <- txtProgressBar(i <- 0, length(meds), style = 3, initial = NA)
+pb <- txtProgressBar(i <- 0, length(medStrings), style = 3, initial = NA)
 allMatches <- do.call(rbind,
                       lapply(medStrings, function(med) {
                         matches <- fuzzyMatches(med)
+                        Sys.sleep(0.1)
                         setTxtProgressBar(pb, i <<- i+1)
-                        data.frame(medString = med, matches)
+                        if (!is.null(matches)) data.frame(medString = med, matches) else NULL
                       }))
 close(pb)
 
 
-
 # Match the rxcui to their properties -------------------------------------
 
+if (getConceptInfo) {
+  cat("## Getting concept information...\n")
+  rxcuis <- unique(allMatches$rxcui)
+  pb <- txtProgressBar(i <- 0, length(rxcuis), style = 3, initial = NA)
+  rxcuiProperties <- do.call(rbind,
+                             lapply(rxcuis, function(rxcui) {
+                               properties <- rxcuiInfo(rxcui)
+                               Sys.sleep(0.1)
+                               setTxtProgressBar(pb, i <<- i+1)
+                               properties
+                             }))
+  close(pb)
+  
+  allMatches <- merge(allMatches, rxcuiProperties)
+}
 
 
-r <- GET(buildUrl(""),
-         path = paste("REST/rxcui", 214182, "properties", sep = "/"))
-cbind(unlist(fromJSON(content(r, "text"))$properties))
+# Merge the data with the original med identifier to match ----------------
+
+results <- merge(medTable, allMatches, by.x = "medication", by.y = "medString")
+
+
+# Write output table ------------------------------------------------------
+
+write.csv(results, "allMatchesWithProperties.csv")
+
+
+
 
