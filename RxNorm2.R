@@ -27,7 +27,12 @@ cat(" 1. Only", length(unique(results$medication)), "medications got matched wit
 nBestMatches <- tapply(results$score, results$medication, function(scores) sum(scores == max(scores)))
 cat(" 2. From these matched medications,", sum(nBestMatches == 1), pc(mean(nBestMatches == 1)), "have an unambiguous first match.\n")
 
-cat(" 3. These unambiguous hits match to a total of", length(unique(results[ results$medication %in% names(nBestMatches)[nBestMatches == 1], "rxcui"])), "different rxcuis.\n")
+unambiguousMatches <- ddply(results, ~medication, function(dfi) {
+  maxScore <- dfi$score == max(dfi$score)
+  if (sum(maxScore) > 1) NULL
+  else dfi[maxScore,]
+})
+cat(" 3. These unambiguous hits match to a total of", length(unique(unambiguousMatches$rxcui)), "different rxcuis.\n")
                        
 hm100 <- tapply(results$score == 100, results$medication, sum)
 cat(" 4.", sum(hm100>0), pc(mean(hm100>0)), "medications have at least one perfect match, with", 
@@ -35,15 +40,9 @@ cat(" 4.", sum(hm100>0), pc(mean(hm100>0)), "medications have at least one perfe
 
 cat(" 5. These unambiguous perfect hits match to a total of", length(unique(results[ results$medication %in% names(hm100)[hm100 == 1], "rxcui"])), "different rxcuis.\n")
 
-unambiguousMatches <- ddply(results, ~medication, function(dfi) {
-  maxScore <- dfi$score == max(dfi$score)
-  if (sum(maxScore) > 1) NULL
-  else dfi[maxScore,]
-})
-
-write.csv(unambiguousMatches, "Output/unambiguousMatchesWithProperties.csv")
+write.csv(unambiguousMatches, "Output/unambiguousMatches.csv")
 
 
-# Have a look -------------------------------------------------------------
+# QC -------------------------------------------------------------
 
-View(results[1:25, c("medication", "name", "score")])
+View(unambiguousMatches[ unambiguousMatches$score != 100, c("medication", "name", "score")])
