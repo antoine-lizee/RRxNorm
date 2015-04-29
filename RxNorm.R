@@ -103,7 +103,7 @@ if (test) {
 
 # Read Example File ----------------------------------------------------------------
 
-medTable <- read.delim("Data/medications.tsv", stringsAsFactors = F)
+medTable <- read.delim("Input/medications.tsv", stringsAsFactors = F)
 medStrings <- unique(medTable$medication)
 
 
@@ -147,8 +147,8 @@ results <- merge(medTable, allMatches, by.x = "medication", by.y = "medString")
 
 # Write output table ------------------------------------------------------
 
-write.csv(results, "allMatchesWithProperties.csv")
-save(results, medTable, file = "allMatchesWithProperties.RData")
+write.csv(results, "Output/allMatchesWithProperties.csv")
+save(results, medTable, file = "Input/allMatchesWithProperties.RData")
 
 
 

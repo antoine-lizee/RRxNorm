@@ -1,5 +1,6 @@
-if (length(dir(pattern = "allMatchesWithProperties.RData")) == 1) {
-  load("allMatchesWithProperties.RData")
+
+if (!file.exists(fileName <- "Input/allMatchesWithProperties.RData")) {
+  load(fileName)
 } else {
   stop("Get the data from the API first !")
 }
