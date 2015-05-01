@@ -1,5 +1,8 @@
 # RRxNorm2.R
 #
+# The golden link:
+# http://www.nlm.nih.gov/research/umls/knowledge_sources/metathesaurus/release/abbreviations.html#mrdoc_TTY
+# http://www.nlm.nih.gov/research/umls/knowledge_sources/metathesaurus/release/precedence_suppressibility.html
 # Copyright Antoine Lizee 04/2015 - antoine.lizee@gmail.com 
 
 rm(list = ls())
@@ -46,3 +49,10 @@ write.csv(unambiguousMatches, "Output/unambiguousMatches.csv")
 # QC -------------------------------------------------------------
 
 View(unambiguousMatches[ unambiguousMatches$score != 100, c("medication", "name", "score")])
+write.csv(unambiguousMatches[ order(unambiguousMatches$score), c("medication", "name", "score")], "Output/unambiguousMatchesForQC.csv")
+
+
+
+# Enrichment --------------------------------------------------------------
+
+
