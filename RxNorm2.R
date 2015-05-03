@@ -44,7 +44,7 @@ cat(" 4.", sum(hm100>0), pc(mean(hm100>0)), "medications have at least one perfe
 
 cat(" 5. These unambiguous perfect hits match to a total of", length(unique(results[ results$medication %in% names(hm100)[hm100 == 1], "rxcui"])), "different rxcuis.\n")
 
-write.csv(unambiguousMatches, "Output/unambiguousMatches.csv")
+write.csv(unambiguousMatches, "Output/unambiguousMatches.csv", row.names = F)
 
 
 # QC -------------------------------------------------------------
@@ -100,8 +100,8 @@ resolvedMatches <- allResolvedMatches[allResolvedMatches$resolved, -15]
 cat(" 6. After resolving ambiguity based on the term type from source prioritisation, we get ",
     nrow(resolvedMatches), pc(nrow(resolvedMatches)/length(nBestMatches)),
     " medications finally matched.\n")
-write.csv(resolvedMatches, "Output/resolvedMatches.csv")
-write.csv(allResolvedMatches, "Output/allResolvedMatches.csv")
+write.csv(resolvedMatches, "Output/resolvedMatches.csv", row.names = F)
+write.csv(allResolvedMatches, "Output/allResolvedMatches.csv", row.names = F)
 
 
 # QC ----------------------------------------------------------------------

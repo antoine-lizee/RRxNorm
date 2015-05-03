@@ -147,7 +147,7 @@ results <- merge(medTable, allMatches, by.x = "medication", by.y = "medString")
 
 # Write output table ------------------------------------------------------
 
-write.csv(results, "Output/allMatchesWithProperties.csv")
+write.csv(results, "Output/allMatchesWithProperties.csv", row.names = F)
 save(results, medTable, file = "Input/allMatchesWithProperties.RData")
 
 
